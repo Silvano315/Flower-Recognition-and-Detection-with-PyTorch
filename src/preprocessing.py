@@ -79,7 +79,7 @@ def create_datasets(data_dir: str, augment_train: bool = False):
     val_transform = create_preprocessing_pipeline(augment=False)
 
     trainset = torchvision.datasets.ImageFolder(root=f'{data_dir}/train', transform=train_transform)
-    valset = torchvision.datasets.ImageFolder(root=f'{data_dir}/val', transform=val_transform)
+    valset = torchvision.datasets.ImageFolder(root=f'{data_dir}/valid', transform=val_transform)
     testset = torchvision.datasets.ImageFolder(root=f'{data_dir}/test', transform=val_transform)
 
     return trainset, valset, testset
