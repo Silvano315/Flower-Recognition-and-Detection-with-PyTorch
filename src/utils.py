@@ -1,21 +1,25 @@
 import tarfile
 from pathlib import Path
 import os
+import shutil
 import logging
-from typing import List, Tuple, Dict
 import numpy as np
+from typing import List, Tuple, Dict
+from tqdm import tqdm
+
 
 def extract_dataset(tar_path: str, extract_path: str) -> None:
     """
-    Extract a tar.gz dataset file to a specified directory.
+    Extract a tar.gz dataset file to a specified directory, showing progress,
+    and removing macOS hidden files.
 
     Args:
-        tar_path (str): Path to the tar.gz file.
-        extract_path (str): Path where the dataset should be extracted.
+    tar_path (str): Path to the tar.gz file.
+    extract_path (str): Path where the dataset should be extracted.
 
     Raises:
-        FileNotFoundError: If the tar.gz file is not found.
-        tarfile.ReadError: If there's an error reading the tar.gz file.
+    FileNotFoundError: If the tar.gz file is not found.
+    tarfile.ReadError: If there's an error reading the tar.gz file.
     """
     tar_path = Path(tar_path)
     extract_path = Path(extract_path)
@@ -27,10 +31,37 @@ def extract_dataset(tar_path: str, extract_path: str) -> None:
 
     try:
         with tarfile.open(tar_path, 'r:gz') as tar:
-            tar.extractall(path=extract_path)
-        print(f"Dataset extracted successfully to {extract_path} folder!!")
+            members = tar.getmembers()
+            total_members = len(members)
+
+            with tqdm(total=total_members, unit='file', desc="Extracting files") as pbar:
+                for member in members:
+                    tar.extract(member, path=extract_path)
+                    pbar.update(1)
+
+        print(f"Dataset extracted to {extract_path}")
+        print(f"Total files extracted: {total_members}")
+        print("Removing macOS hidden files...")
+
+        removed_files = 0
+        for root, dirs, files in os.walk(extract_path, topdown=False):
+            for name in files:
+                if name.startswith('._') or name == '.DS_Store':
+                    os.remove(os.path.join(root, name))
+                    removed_files += 1
+            for name in dirs:
+                if name == '__MACOSX':
+                    shutil.rmtree(os.path.join(root, name))
+                    removed_files += 1
+
+        print(f"Removed {removed_files} macOS hidden files/folders")
+        print(f"Final number of files: {total_members - removed_files}")
+
     except tarfile.ReadError:
         raise tarfile.ReadError(f"Error reading the tar.gz file: {tar_path}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {str(e)}")
+        raise
 
 
 def get_paths_to_files(dir_path: str) -> Tuple[List[str], List[str]]:
