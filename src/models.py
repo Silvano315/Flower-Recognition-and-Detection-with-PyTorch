@@ -13,7 +13,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchvision import models
 from sklearn.metrics import precision_score, recall_score, f1_score
 
 
@@ -41,6 +40,8 @@ class Experiment:
         self.test_history_fpath = os.path.join(self.history_dir, 'test.csv')
         self.metrics = ['loss', 'accuracy', 'precision', 'recall', 'f1']
         self.history = {split: {metric: [] for metric in self.metrics} for split in ['train', 'val', 'test']}
+        self.metrics.append('lr')
+        self.history['lr'] = []
 
     def log(self, msg: str):
         if self.logger:
@@ -100,6 +101,8 @@ class Experiment:
         with open(fpath, 'a') as f:
             values = [str(kwargs.get(metric, kwargs.get(f'val_{metric}', ''))) for metric in self.metrics]
             f.write(f"{self.epoch},{','.join(values)}\n")
+        if split == 'lr':
+            self.history['lr'].append(kwargs['lr'])
         if split == 'val' and 'loss' in kwargs:
             if self.is_best_loss(kwargs['loss']):
                 self.best_val_loss = kwargs['loss']
@@ -173,6 +176,15 @@ class Experiment:
             self.log(f"Error loading optimizer: {str(e)}")
             raise
 
+    def save_checkpoint(self, model, optimizer, epoch, logs):
+        self.save_weights(model)
+        self.save_optimizer(optimizer)
+
+    def load_checkpoint(self, model, optimizer):
+        model = self.load_weights(model)
+        optimizer = self.load_optimizer(optimizer)
+        return model, optimizer
+
     def get_state(self):
         return {
             'epoch': self.epoch,
@@ -211,6 +223,17 @@ class Experiment:
         plt.tight_layout()
         plt.savefig(os.path.join(self.history_dir, 'combined_history.png'))
         plt.close()
+
+        if 'lr' in self.history:
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(self.history['lr'], label='Learning Rate')
+            ax.set_xlabel('Epoch')
+            ax.set_ylabel('Learning Rate')
+            ax.set_yscale('log')  
+            ax.legend()
+            ax.set_title(f'{self.name} - Learning Rate')
+            plt.savefig(os.path.join(self.history_dir, 'learning_rate.png'))
+            plt.close()
 
     def update_plots(self):
         self.plot_history()
@@ -390,6 +413,7 @@ class ModelCheckpoint(Callback):
 
     def _save_checkpoint(self, model: torch.nn.Module, optimizer: torch.optim.Optimizer, 
                          epoch: int, logs: Dict[str, float], experiment: Any):
+        experiment.save_checkpoint(model, optimizer, epoch, logs)
         checkpoint = {
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -659,6 +683,9 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
     """
 
     if resume_from:
+        #model, optimizer = experiment.load_checkpoint(model, optimizer)
+        #model, optimizer = experiment.resume(model, optimizer)
+        #start_epoch = experiment.epoch
         checkpoint = torch.load(resume_from)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -680,6 +707,9 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
 
     for epoch in range(start_epoch, num_epochs + 1):
         logger.info(f"Epoch {epoch}/{num_epochs}")
+
+        current_lr = optimizer.param_groups[0]['lr']
+        experiment.save_history('lr', lr=current_lr)
 
         train_logs = train_epoch(model, train_loader, criterion, optimizer, device)
         val_logs = validate(model, val_loader, criterion, device)
