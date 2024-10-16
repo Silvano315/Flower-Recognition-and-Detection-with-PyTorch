@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from sklearn.metrics import precision_score, recall_score, f1_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 
 class Experiment:
@@ -488,24 +488,22 @@ class TransferLearningModel(nn.Module):
         
         self.base_model = timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
         
-        if hasattr(self.base_model, 'num_features'):
-            num_ftrs = self.base_model.num_features
-        elif hasattr(self.base_model, 'fc'):
-            num_ftrs = self.base_model.fc.in_features
-        else:
-            raise ValueError(f"Unable to determine the number of features for the model {model_name}")
-        
         self.use_custom_classifier = use_custom_classifier
         
         if use_custom_classifier:
             self.base_model.reset_classifier(0)
             
+            with torch.no_grad():
+                sample_input = torch.randn(1, 3, 224, 224)
+                sample_output = self.base_model.forward_features(sample_input)
+                num_ftrs = sample_output.reshape(sample_output.size(0), -1).size(1)
+            
             self.classifier = nn.Sequential(
                 nn.Linear(num_ftrs, 512),
-                F.relu(),
+                nn.ReLU(),
                 nn.Dropout(0.2),
                 nn.Linear(512, 256),
-                F.relu(),
+                nn.ReLU(),
                 nn.Dropout(0.2),
                 nn.Linear(256, num_classes)
             )
@@ -515,9 +513,11 @@ class TransferLearningModel(nn.Module):
     def forward(self, x):
         features = self.base_model.forward_features(x)
         if self.use_custom_classifier:
+            features = features.reshape(features.size(0), -1)
             return self.classifier(features)
         else:
             return self.base_model.forward_head(features)
+
     
     
 def freeze_layers(model: nn.Module, num_layers: int = -1):
@@ -526,19 +526,26 @@ def freeze_layers(model: nn.Module, num_layers: int = -1):
     
     Args:
     model (nn.Module): The model to freeze layers in.
-    num_layers (int): Number of layers to freeze from the start. -1 means freeze all except the last layer.
+    num_layers (int): Number of layers to freeze from the start. -1 means freeze all except the classifier.
     """
     if isinstance(model, TransferLearningModel):
         if num_layers == -1:
-            for name, param in model.model.named_parameters():
+            for name, param in model.base_model.named_parameters():
                 if "classifier" not in name and "fc" not in name:
                     param.requires_grad = False
         else:
-            for i, (name, param) in enumerate(model.model.named_parameters()):
+            for i, (name, param) in enumerate(model.base_model.named_parameters()):
                 if i < num_layers:
                     param.requires_grad = False
                 else:
                     param.requires_grad = True
+        
+        if model.use_custom_classifier:
+            for param in model.classifier.parameters():
+                param.requires_grad = True
+        else:
+            for param in model.base_model.get_classifier().parameters():
+                param.requires_grad = True
     else:
         raise NotImplementedError("Freezing layers is only implemented for TransferLearningModel")
 
@@ -555,9 +562,9 @@ def create_model(num_classes: int, model_type: str = 'efficientnet_b0', pretrain
     Returns:
     nn.Module: The created model.
     """
-    if model_type == 'efficientnetv2_m':
+    if model_type == 'efficientnet_b5.sw_in12k_ft_in1k':
         # Top performer
-        return TransferLearningModel('efficientnetv2_m', num_classes, pretrained, use_custom_classifier)
+        return TransferLearningModel('efficientnet_b5.sw_in12k_ft_in1k', num_classes, pretrained, use_custom_classifier)
     elif model_type == 'convnext_base':
         # Recent, medium performance
         return TransferLearningModel('convnext_base', num_classes, pretrained, use_custom_classifier)
@@ -602,10 +609,10 @@ def train_epoch(model: nn.Module, dataloader: DataLoader, criterion: nn.Module,
         targets.extend(labels.cpu().numpy())
 
     epoch_loss = running_loss / len(dataloader.dataset)
-    epoch_accuracy = np.mean(np.array(predictions) == np.array(targets))
-    epoch_precision = precision_score(targets, predictions, average='weighted', zero_division=1)
-    epoch_recall = recall_score(targets, predictions, average='weighted')
-    epoch_f1 = f1_score(targets, predictions, average='weighted')
+    epoch_accuracy = accuracy_score(targets, predictions)
+    epoch_precision = precision_score(targets, predictions, average='binary')
+    epoch_recall = recall_score(targets, predictions, average='binary')
+    epoch_f1 = f1_score(targets, predictions, average='binary')
 
     return {
         'loss': epoch_loss,
@@ -646,10 +653,10 @@ def validate(model: nn.Module, dataloader: DataLoader, criterion: nn.Module,
             targets.extend(labels.cpu().numpy())
 
     epoch_loss = running_loss / len(dataloader.dataset)
-    epoch_accuracy = np.mean(np.array(predictions) == np.array(targets))
-    epoch_precision = precision_score(targets, predictions, average='weighted', zero_division=1)
-    epoch_recall = recall_score(targets, predictions, average='weighted')
-    epoch_f1 = f1_score(targets, predictions, average='weighted')
+    epoch_accuracy = accuracy_score(targets, predictions)
+    epoch_precision = precision_score(targets, predictions, average='binary')
+    epoch_recall = recall_score(targets, predictions, average='binary')
+    epoch_f1 = f1_score(targets, predictions, average='binary')
 
     return {
         'loss': epoch_loss,
