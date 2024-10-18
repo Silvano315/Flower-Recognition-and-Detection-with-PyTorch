@@ -38,10 +38,8 @@ class Experiment:
         self.train_history_fpath = os.path.join(self.history_dir, 'train.csv')
         self.val_history_fpath = os.path.join(self.history_dir, 'val.csv')
         self.test_history_fpath = os.path.join(self.history_dir, 'test.csv')
-        self.metrics = ['loss', 'accuracy', 'precision', 'recall', 'f1']
+        self.metrics = ['loss', 'accuracy', 'precision', 'recall', 'f1', 'lr']
         self.history = {split: {metric: [] for metric in self.metrics} for split in ['train', 'val', 'test']}
-        self.metrics.append('lr')
-        self.history['lr'] = []
 
     def log(self, msg: str):
         if self.logger:
@@ -88,21 +86,26 @@ class Experiment:
     def load_history_from_file(self, split: str):
         fpath = getattr(self, f'{split}_history_fpath')
         data = np.loadtxt(fpath, delimiter=',', skiprows=1)
+        if data.ndim == 1:  
+            data = data.reshape(1, -1) 
         for i, metric in enumerate(self.metrics):
             self.history[split][metric] = data[:, i+1].tolist()
 
     def save_history(self, split: str, **kwargs):
         for metric, value in kwargs.items():
-            metric_name = metric[4:] if metric.startswith('val_') else metric
-            if metric_name not in self.history[split]:
-                self.history[split][metric_name] = []
-            self.history[split][metric_name].append(value)
+            if metric == 'lr':
+                self.history['train']['lr'].append(value) 
+            else:
+                metric_name = metric[4:] if metric.startswith('val_') else metric
+                if metric_name not in self.history[split]:
+                    self.history[split][metric_name] = []
+                self.history[split][metric_name].append(value)
+        
         fpath = getattr(self, f'{split}_history_fpath')
         with open(fpath, 'a') as f:
             values = [str(kwargs.get(metric, kwargs.get(f'val_{metric}', ''))) for metric in self.metrics]
             f.write(f"{self.epoch},{','.join(values)}\n")
-        if split == 'lr':
-            self.history['lr'].append(kwargs['lr'])
+        
         if split == 'val' and 'loss' in kwargs:
             if self.is_best_loss(kwargs['loss']):
                 self.best_val_loss = kwargs['loss']
@@ -177,8 +180,11 @@ class Experiment:
             raise
 
     def save_checkpoint(self, model, optimizer, epoch, logs):
-        self.save_weights(model)
-        self.save_optimizer(optimizer)
+        self.save_weights(model, **logs)
+        if 'val_loss' in logs:
+            self.save_optimizer(optimizer, logs['val_loss'])
+        else:
+            self.save_optimizer(optimizer, float('inf'))
 
     def load_checkpoint(self, model, optimizer):
         model = self.load_weights(model)
@@ -667,7 +673,7 @@ def validate(model: nn.Module, dataloader: DataLoader, criterion: nn.Module,
     }
 
 
-def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoader,
+def train_model(model: nn.Module, optimizer: torch.optim.Optimizer, train_loader: DataLoader, val_loader: DataLoader,
                 experiment: Any, callbacks: List[Any], num_epochs: int,
                 device: torch.device, logger: logging.Logger, 
                 resume_from: str = None) -> nn.Module:
@@ -676,6 +682,7 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
 
     Args:
         model (nn.Module): The neural network model to train.
+        optimizer (torch.optim.Optimizer): The optimizer used for training.
         train_loader (DataLoader): The DataLoader for the training data.
         val_loader (DataLoader): The DataLoader for the validation data.
         experiment (Any): An object to track the experiment (e.g., for logging).
@@ -701,7 +708,7 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         experiment.set_state(checkpoint['experiment_state'])
         logger.info(f"Resuming from epoch {start_epoch}")
     else:
-        optimizer = optim.Adam(model.parameters(), lr=0.001)
+        #optimizer = optim.Adam(model.parameters(), lr=0.001)
         start_epoch = 1
 
     criterion = nn.CrossEntropyLoss()
@@ -716,8 +723,6 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         logger.info(f"Epoch {epoch}/{num_epochs}")
 
         current_lr = optimizer.param_groups[0]['lr']
-        experiment.save_history('lr', lr=current_lr)
-
         train_logs = train_epoch(model, train_loader, criterion, optimizer, device)
         val_logs = validate(model, val_loader, criterion, device)
 
@@ -728,7 +733,7 @@ def train_model(model: nn.Module, train_loader: DataLoader, val_loader: DataLoad
         log_message += " | ".join([f"{k}: {v:.4f}" for k, v in logs.items()])
         logger.info(log_message)
 
-        experiment.save_history('train', **train_logs)
+        experiment.save_history('train', **train_logs, lr=current_lr)
         experiment.save_history('val', **val_logs_prefixed)
         experiment.update_plots()
 
