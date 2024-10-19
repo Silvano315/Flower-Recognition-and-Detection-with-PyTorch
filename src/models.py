@@ -318,6 +318,7 @@ class Experiment:
         plt.xlabel('Epoch')
         plt.ylabel('Learning Rate')
         plt.title(f'{self.name} - Learning Rate Schedule')
+        plt.show()
         plt.savefig(os.path.join(self.history_dir, 'learning_rate.png'))
         plt.close()
 
