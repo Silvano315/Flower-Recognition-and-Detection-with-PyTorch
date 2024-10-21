@@ -115,6 +115,8 @@ class Experiment:
         return loss < self.best_val_loss
 
     def save_weights(self, model: torch.nn.Module, **kwargs):
+        #weights_fname = f"{self.name}-latest-weights.pth"
+        #weights_fpath = os.path.join(self.weights_dir, weights_fname)
         weights_fname = f"{self.name}-weights-{self.epoch}-" + "-".join([f"{v:.3f}" for v in kwargs.values()]) + ".pth"
         weights_fpath = os.path.join(self.weights_dir, weights_fname)
         try:
@@ -127,6 +129,7 @@ class Experiment:
                 **kwargs
             }, weights_fpath)
             shutil.copyfile(weights_fpath, self.latest_weights)
+            #self.latest_weights = weights_fpath
             if self.is_best_loss(kwargs['val_loss']):
                 self.best_weights_path = weights_fpath
             self.log(f"Successfully saved weights to {weights_fpath}")
@@ -151,6 +154,8 @@ class Experiment:
     def save_optimizer(self, optimizer: torch.optim.Optimizer, val_loss: float):
         optim_fname = f"{self.name}-optim-{self.epoch}.pth"
         optim_fpath = os.path.join(self.weights_dir, optim_fname)
+        #optim_fname = f"{self.name}-latest-optim.pth"
+        #optim_fpath = os.path.join(self.weights_dir, optim_fname)
         try:
             torch.save({
                 'last_epoch': self.epoch,
@@ -158,6 +163,7 @@ class Experiment:
                 'state_dict': optimizer.state_dict()
             }, optim_fpath)
             shutil.copyfile(optim_fpath, self.latest_optimizer)
+            #self.latest_optimizer = optim_fpath
             if self.is_best_loss(val_loss):
                 self.best_optimizer_path = optim_fpath
             self.log(f"Successfully saved optimizer to {optim_fpath}")
@@ -190,6 +196,24 @@ class Experiment:
         model = self.load_weights(model)
         optimizer = self.load_optimizer(optimizer)
         return model, optimizer
+    
+    def cleanup_old_files(self, keep_last_n: int = 1):
+        def get_sorted_files(prefix):
+            files = [f for f in os.listdir(self.weights_dir) if f.startswith(prefix)]
+            return sorted(files, key=lambda x: os.path.getmtime(os.path.join(self.weights_dir, x)), reverse=True)
+
+        for prefix in [f"{self.name}-weights-", f"{self.name}-optim-"]:
+            files = get_sorted_files(prefix)
+            files_to_keep = set(files[:keep_last_n])
+            files_to_keep.add(os.path.basename(self.latest_weights))
+            files_to_keep.add(os.path.basename(self.latest_optimizer))
+            files_to_keep.add(os.path.basename(self.best_weights_path))
+            files_to_keep.add(os.path.basename(self.best_optimizer_path))
+
+            for file in files:
+                if file not in files_to_keep:
+                    os.remove(os.path.join(self.weights_dir, file))
+                    self.log(f"Removed old file: {file}")
 
     def get_state(self):
         return {
@@ -376,7 +400,7 @@ class EarlyStopping(Callback):
 
 class ModelCheckpoint(Callback):
     def __init__(self, filepath: str, monitor: str = 'val_loss', verbose: int = 0,
-                 save_best_only: bool = False, mode: str = 'auto'):
+                 save_best_only: bool = False, mode: str = 'auto', keep_last_n: int = 1):
         self.filepath = filepath
         self.monitor = monitor
         self.verbose = verbose
@@ -384,6 +408,7 @@ class ModelCheckpoint(Callback):
         self.mode = mode
         self.best = None
         self.monitor_op = None
+        self.keep_last_n = keep_last_n
         self._init_monitor_op()
 
     def _init_monitor_op(self):
@@ -417,6 +442,8 @@ class ModelCheckpoint(Callback):
             if self.verbose > 0:
                 print(f'\nEpoch {epoch:05d}: saving model to {self.filepath}')
             self._save_checkpoint(model, optimizer, epoch, logs, experiment)
+
+        experiment.cleanup_old_files(self.keep_last_n)
 
     def _save_checkpoint(self, model: torch.nn.Module, optimizer: torch.optim.Optimizer, 
                          epoch: int, logs: Dict[str, float], experiment: Any):
