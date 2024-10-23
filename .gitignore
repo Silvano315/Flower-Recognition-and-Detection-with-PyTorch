@@ -132,6 +132,7 @@ venv.bak/
 
 # Dataset folder
 dataset/
+dataset_detection/
 
 # Spyder project settings
 .spyderproject
