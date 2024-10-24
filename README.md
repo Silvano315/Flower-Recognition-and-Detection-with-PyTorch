@@ -36,7 +36,7 @@ The main goal is to develop a highly robust model, capable of automatically clas
 
 ## 🍽️ Dataset
 
-The dataset provided by ProfessionAI ([link](https://proai-datasets.s3.eu-west-3.amazonaws.com/progetto-finale-flowes.tar.gz)) includes two main categories of flowers:
+The dataset provided by ProfessionAI ([link](https://proai-datasets.s3.eu-west-3.amazonaws.com/progetto-finale-flowes.tar.gz) to download this dataset) includes two main categories of flowers:
 
 - Daisy: 529 training images, 163 validation, 77 test.
 - Dandelion: 746 training images, 201 validation, 105 test.
@@ -106,7 +106,7 @@ I conducted a comprehensive Exploratory Data Analysis to understand this dataset
 - Class Distribution: The dataset shows a slight imbalance between classes:
   - Daisy: 529 training images (41.5%), 163 validation images (44.8%), 77 test images (42.3%)
   - Dandelion: 746 training images (58.5%), 201 validation images (55.2%), 105 test images (57.7%)
-While there is an imbalance, the ratio remains consistent across splits and is not severe enough to significantly impact binary classification.
+  While there is an imbalance, the ratio remains consistent across splits and is not severe enough to significantly impact binary classification.
 
 - Image Dimensions: All images are consistently sized at 512x512 pixels.
 
@@ -141,7 +141,46 @@ You can find [here](src/preprocessing.py) the class Transforms and methods I've 
 
 ### Model Architecture
 
+The project implements a sophisticated transfer learning architecture through a custom `TransferLearningModel` class. This class provides:
+
+- Flexible Model Integration
+- Dual Classifier Options:
+  - Original classifier with modified output layer
+  - Custom classifier with configurable dense layers and dropout
+- Layer Freezing Control:
+  - Selective layer freezing for fine-tuning optimization
+  - Option to freeze all layers except the classifier
+
+This architecture allows for both automated and manual fine-tuning approaches, making it easy to experiment with different transfer learning strategies while maintaining code consistency.
+
 ### Results of Transfer Learning
+
+| Model | Config | Train Loss | Val Loss | Train Acc | Val Acc | Train Prec | Val Prec | Train Recall | Val Recall | Train F1 | Val F1 |
+|-------|---------|------------|-----------|------------|----------|-------------|-----------|--------------|------------|-----------|---------|
+| EfficientNet B5 | Original | 0.96 ± 0.81 | 1.06 ± 0.56 | 0.87 ± 0.08 | 0.87 ± 0.06 | 0.89 ± 0.07 | 0.89 ± 0.06 | 0.89 ± 0.07 | 0.88 ± 0.05 | 0.89 ± 0.07 | 0.88 ± 0.05 |
+| EfficientNet B5 | Custom | 0.08 ± 0.10 | 0.16 ± 0.02 | 0.97 ± 0.03 | 0.94 ± 0.01 | 0.97 ± 0.03 | 0.95 ± 0.01 | 0.98 ± 0.02 | 0.94 ± 0.02 | 0.98 ± 0.02 | 0.94 ± 0.01 |
+| ConvNext Base | Original | 0.17 ± 0.19 | 0.20 ± 0.14 | 0.93 ± 0.10 | 0.93 ± 0.06 | 0.93 ± 0.09 | 0.94 ± 0.05 | 0.95 ± 0.06 | 0.93 ± 0.11 | 0.94 ± 0.08 | 0.93 ± 0.08 |
+| ConvNext Base | Custom | 0.41 ± 1.37 | 0.22 ± 0.20 | 0.92 ± 0.15 | 0.90 ± 0.13 | 0.92 ± 0.13 | 0.92 ± 0.13 | 0.95 ± 0.10 | 0.95 ± 0.07 | 0.93 ± 0.12 | 0.92 ± 0.08 |
+| ResNet50 | Original | 0.16 ± 0.08 | 0.15 ± 0.06 | 0.95 ± 0.03 | 0.94 ± 0.01 | 0.94 ± 0.04 | 0.95 ± 0.01 | 0.97 ± 0.01 | 0.94 ± 0.01 | 0.96 ± 0.02 | 0.94 ± 0.01 |
+| ResNet50 | Custom | 0.13 ± 0.11 | 0.18 ± 0.03 | 0.95 ± 0.05 | 0.93 ± 0.01 | 0.95 ± 0.05 | 0.94 ± 0.02 | 0.96 ± 0.04 | 0.93 ± 0.04 | 0.96 ± 0.04 | 0.93 ± 0.01 |
+
+Test set results:
+
+| Model | Configuration | Loss | Accuracy | Precision | Recall | F1 Score |
+|-------|--------------|------|-----------|------------|---------|-----------|
+| EfficientNet B5 | Original | 0.62 | 0.90 | 0.91 | 0.91 | 0.91 |
+| EfficientNet B5 | Custom | 0.13 | 0.95 | 0.94 | 0.97 | 0.96 |
+| ConvNext Base | Original | 0.12 | 0.97 | 0.98 | 0.97 | 0.98 |
+| ConvNext Base | Custom | 0.15 | 0.96 | 0.95 | 0.98 | 0.97 |
+| ResNet50 | Original | 0.13 | 0.95 | 0.94 | 0.97 | 0.95 |
+| ResNet50 | Custom | 0.15 | 0.93 | 0.95 | 0.93 | 0.94 |
+
+Key observations:
+- All models achieved impressive performance with F1 scores consistently above 90%
+- Some configurations (particularly EfficientNet B5) showed signs of overfitting, suggesting potential benefits from increased dropout or L2 regularization
+- While ConvNext Base achieved the highest test F1 score (0.98), the discrepancy between training/validation and test performance raises concerns about stability
+- ResNet50 emerged as the most reliable choice, maintaining consistent performance (~0.95 F1 score) across all splits with minimal variance
+
 
 ## Object Detection with YOLO
 
