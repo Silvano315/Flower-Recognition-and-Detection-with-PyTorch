@@ -99,9 +99,45 @@ The `train_model` function encapsulates the entire training loop, including:
 The `validate` and `get_predictions` functions provide easy-to-use interfaces for model evaluation and inference.
 
 
-## Visualization and Preprocess
+## 🖼️ Visualization and Preprocessing
 
-## Transfer Learning with timm
+I conducted a comprehensive Exploratory Data Analysis to understand this dataset better. The full EDA can be found in the [project notebook](project_notebook.ipynb), but here are some key insights:
+
+- Class Distribution: The dataset shows a slight imbalance between classes:
+  - Daisy: 529 training images (41.5%), 163 validation images (44.8%), 77 test images (42.3%)
+  - Dandelion: 746 training images (58.5%), 201 validation images (55.2%), 105 test images (57.7%)
+While there is an imbalance, the ratio remains consistent across splits and is not severe enough to significantly impact binary classification.
+
+- Image Dimensions: All images are consistently sized at 512x512 pixels.
+
+- Color Distribution: Analysis of a sample of images revealed a tendency towards green tones, with less representation in the blue spectrum, as expected in a flowers dataset.
+
+For a more detailed visual exploration of the dataset, including class distribution plots, image dimension analysis, and color histograms, please refer to the EDA section in the project notebook. Functions code is [here](src/visualization.py)
+
+### Preprocessing and Data Augmentation
+
+Preprocessing pipeline was implemented using the `Albumentations` library, chosen for its efficiency and wide range of image augmentation techniques. The pipeline includes:
+
+1. Resizing: All images are resized to 224x224 pixels to standardize input for these models.
+2. Normalization: Images are normalized using mean and standard deviation values of (0.5, 0.5, 0.5) for each channel.
+
+For data augmentation, I implemented a comprehensive approach that includes:
+
+1. Basic geometric transformations:
+   - `A.RandomRotate90()`
+   - `A.Flip()`
+   - `A.Transpose()`
+
+2. Image enhancement transformations (with 0.2 probability):
+   - `A.Sharpen(alpha=(0.2, 0.3), lightness=(0.5, 0.7))`
+   - `A.RandomBrightnessContrast(brightness_limit=0.1, contrast_limit=0.1)`
+
+These augmentation techniques were carefully selected to preserve the natural appearance of flowers while increasing dataset variability.
+
+You can find [here](src/preprocessing.py) the class Transforms and methods I've used for this project step.
+
+
+## 🚀 Transfer Learning with timm
 
 ### Model Architecture
 
