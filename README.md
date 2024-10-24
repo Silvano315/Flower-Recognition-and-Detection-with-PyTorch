@@ -182,11 +182,46 @@ Key observations:
 - ResNet50 emerged as the most reliable choice, maintaining consistent performance (~0.95 F1 score) across all splits with minimal variance
 
 
-## Object Detection with YOLO
+## 📦 Object Detection with YOLO
 
 ### Implementation
 
+The object detection implementation heavily leveraged [Roboflow](https://roboflow.com/), an incredible platform that has revolutionized computer vision workflows. Roboflow deserves a special mention for their contributions to the computer vision community:
+
+- Comprehensive tools for dataset preparation and annotation
+- Excellent documentation and educational resources
+- Popular `supervision` package for computer vision tasks
+- High-quality YouTube tutorials and live sessions
+- Active community support
+
+The implementation process followed these steps:
+
+1. Dataset Creation with Roboflow:
+   - Selected 160 images from the classification dataset (80 per class)
+   - Manual annotation using Roboflow's intuitive interface
+   - Automatic dataset splitting into train/val/test sets
+   - Export in YOLOv11-ready format
+
+2. Model Training:
+   - Project ID: flowers-object-detection-zscwu
+   - Dataset accessible at: [Flowers Object Detection Dataset](https://universe.roboflow.com/silvano-9j4jy/flowers-object-detection-zscwu/dataset/1)
+   - Following Profession AI's guidance for YOLOv11 implementation
+
 ### Results of Object Detection
+
+While the object detection component was primarily a proof-of-concept using a small dataset, the results were remarkably good. This demonstrates how modern tools like Roboflow and YOLO can achieve impressive results even with limited data.
+
+![Object Detection Example](results_from_detection/test_results_img/result_7.jpg)
+*Example of model inference showing bounding box and classification*
+
+The confusion matrix (available in the [`train3`](results_from_detection/train3/confusion_matrix_normalized.png) folder) shows near-perfect detection and classification performance. However, it's important to note that this high performance is partly due to the small, carefully curated dataset and controlled conditions. The main value of this implementation lies in demonstrating the complete workflow:
+
+1. Transitioning from a classification dataset to object detection
+2. Utilizing modern tools for dataset preparation
+3. Implementing state-of-the-art models
+4. Achieving production-ready results efficiently
+
+This proof-of-concept successfully shows how to extend a classification project to include object detection capabilities, providing a template for larger-scale implementations.
 
 ## Key Insights
 
