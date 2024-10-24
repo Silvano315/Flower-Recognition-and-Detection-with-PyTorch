@@ -223,8 +223,58 @@ The confusion matrix (available in the [`train3`](results_from_detection/train3/
 
 This proof-of-concept successfully shows how to extend a classification project to include object detection capabilities, providing a template for larger-scale implementations.
 
-## Key Insights
+## 🎯 Key Insights
 
-## How to Run
+1. **Transfer Learning Performance**
+  - ResNet50 emerged as the most reliable model with consistent F1 scores ~0.95
+  - Custom classifiers improved performance but required careful tuning
+  - `timm` library enabled efficient model experimentation
+
+2. **Dataset Handling**
+  - Models performed well despite slight class imbalance
+  - Data augmentation proved effective for generalization
+
+3. **Object Detection Integration**
+  - Roboflow streamlined annotation and dataset preparation
+  - YOLOv11n showed excellent performance as proof-of-concept
+  - Successful transition from classification to detection task
+
+4. **Robust Code Structure**
+  - Modular architecture facilitated model experimentation
+  - Comprehensive logging enabled effective performance tracking
+  - Flexible design allows easy integration of new models
+
+5. **Future Scalability**
+  - Architecture ready for additional models and larger datasets
+  - Workflow provides template for production implementations
+
+## 🚀 How to Run
+
+This project can be easily run using Google Colab. Here's how:
+
+1. Open the project notebook in Google Colab.
+2. The notebook contains all necessary steps, including cloning the repository and loading the data.
+3. Run the cells in order to reproduce the analysis and results.
+
+If you prefer to run the project locally:
+
+1. Clone the repository:
+
+````
+git clone https://github.com/Silvano315/Flower-Recognition-and-Detection-with-PyTorch.gits
+````
+
+2. Install the required dependencies:
+
+````
+pip install -r requirements.txt
+````
+
+3. Open and run the Jupyter notebooks in your local environment.
+
+The notebook includes a cell for dataset download and extraction using the `extract_dataset` function from [`utils.py`](src/utils.py). This will automatically handle the dataset setup for you.
+
 
 ## EXTRA: HTML visualization with DataPane
+
+**TBD**
