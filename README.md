@@ -180,6 +180,7 @@ Key observations:
 - Some configurations (particularly EfficientNet B5) showed signs of overfitting, suggesting potential benefits from increased dropout or L2 regularization
 - While ConvNext Base achieved the highest test F1 score (0.98), the discrepancy between training/validation and test performance raises concerns about stability
 - ResNet50 emerged as the most reliable choice, maintaining consistent performance (~0.95 F1 score) across all splits with minimal variance
+- Misclassified images are few, but when you view them with the ground truth you can understand that the models mistake images of flowers taken from below, very small flowers with a lot of background and confuse completely yellow Dandelion with Daisy.
 
 
 ## 📦 Object Detection with YOLO
