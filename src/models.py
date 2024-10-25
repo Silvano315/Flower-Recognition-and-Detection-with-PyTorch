@@ -1,14 +1,14 @@
-import numpy as np
 import os
+import math
 import torch
 import logging
 import shutil
 import sys
 import json
 import timm
-from pathlib import Path
+import numpy as np
 import matplotlib.pyplot as plt
-from typing import Dict, List, Any, Tuple, Callable, Optional
+from typing import Dict, List, Any, Tuple, Optional
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -818,3 +818,77 @@ def get_predictions(model: torch.nn.Module, dataloader: DataLoader, device: torc
             all_labels.extend(labels.cpu().tolist())
     
     return np.array(all_labels), np.array(all_preds)
+
+
+
+def plot_misclassified_images(
+    model: torch.nn.Module,
+    dataloader: DataLoader,
+    device: torch.device,
+    num_images: int = 9,
+    class_names: Optional[List[str]] = None,
+    mean: Tuple[float, float, float] = (0.5, 0.5, 0.5),
+    std: Tuple[float, float, float] = (0.5, 0.5, 0.5)
+) -> None:
+    """
+    Displays misclassified images from the model in an nxn subplot.
+
+    Args:
+        model (torch.nn.Module): The trained model
+        dataloader (DataLoader): DataLoader containing the dataset
+        device (torch.device): Device to run the model on (CPU or GPU)
+        num_images (int): Number of images to display (default: 9)
+        class_names (Optional[List[str]]): List of class names (default: None)
+        mean (Tuple[float, float, float]): Mean used for normalization (default: (0.5, 0.5, 0.5))
+        std (Tuple[float, float, float]): Standard deviation used for normalization (default: (0.5, 0.5, 0.5))
+    """
+    model.eval()
+    misclassified_images = []
+    misclassified_labels = []
+    misclassified_preds = []
+    
+    with torch.no_grad():
+        for images, labels in dataloader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            _, preds = torch.max(outputs, 1)
+            
+            incorrect = preds != labels
+            if incorrect.any():
+                misclassified_images.extend(images[incorrect].cpu())
+                misclassified_labels.extend(labels[incorrect].cpu())
+                misclassified_preds.extend(preds[incorrect].cpu())
+            
+            if len(misclassified_images) >= num_images:
+                break
+    
+    n = int(math.sqrt(num_images))
+    if n * n < num_images:
+        n += 1
+    
+    fig = plt.figure(figsize=(15, 15))
+    for idx in range(min(num_images, len(misclassified_images))):
+        ax = fig.add_subplot(n, n, idx + 1)
+        
+        img = misclassified_images[idx].permute(1, 2, 0)
+        
+        mean_tensor = torch.tensor(mean)
+        std_tensor = torch.tensor(std)
+        img = img * std_tensor + mean_tensor
+        img = torch.clamp(img, 0, 1)
+        
+        ax.imshow(img)
+        
+        true_label = misclassified_labels[idx].item()
+        pred_label = misclassified_preds[idx].item()
+        
+        if class_names:
+            title = f'True: {class_names[true_label]}\nPred: {class_names[pred_label]}'
+        else:
+            title = f'True: {true_label}\nPred: {pred_label}'
+            
+        ax.set_title(title, color='red')
+        ax.axis('off')
+    
+    plt.tight_layout()
+    plt.show()
