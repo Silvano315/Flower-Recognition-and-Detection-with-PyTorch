@@ -14,7 +14,7 @@
   - [Results of Object Detection](#results-of-object-detection)
 - [Key Insights](#key-insights)
 - [How to Run](#how-to-run)
-- [EXTRA: HTML visualization with DataPane](#EXTRA-html-visualization-with-datapane)
+- [Interactive Results Visualization](#interactive-results-visualization)
 
 
 ## 🌟 Project Overview
@@ -276,6 +276,28 @@ pip install -r requirements.txt
 The notebook includes a cell for dataset download and extraction using the `extract_dataset` function from [`utils.py`](src/utils.py). This will automatically handle the dataset setup for you.
 
 
-## EXTRA: HTML visualization with DataPane
+## 📊 Interactive Results Visualization
 
-**TBD**
+This project includes comprehensive interactive HTML reports generated using DataPane for enhanced visualization and analysis of model performance. The reports provide:
+
+- **Model Performance Metrics**
+  - Interactive training and validation curves
+  - Real-time metric exploration
+  - Learning rate evolution visualization
+
+- **Confusion Matrix Analysis**
+  - Interactive confusion matrix
+  - Class-wise prediction distribution
+  - Hover capabilities for detailed information
+
+- **Performance Summary**
+  - Best validation accuracy
+  - Best F1 score
+  - Final model metrics
+  - Training progress visualization
+
+- **Dataset Insights**
+  - Number of classes
+  - Class distribution
+  - Total predictions analysis
+
