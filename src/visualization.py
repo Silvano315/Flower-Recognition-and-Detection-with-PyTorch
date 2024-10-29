@@ -11,6 +11,7 @@ from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 import torch
 import torchvision
+import datapane as dp
 
 from src.utils import calculate_mean_std
 
@@ -420,3 +421,135 @@ def plot_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, classes: List[
     plt.tight_layout()
     plt.savefig('images/confusion_matrix.png')
     plt.close()
+
+
+def generate_interactive_report(experiment_name: str,
+                              train_metrics: pd.DataFrame,
+                              val_metrics: pd.DataFrame,
+                              test_metrics: pd.DataFrame,
+                              y_true: np.ndarray,
+                              y_pred: np.ndarray,
+                              class_names: List[str],
+                              history_plots: Dict[str, str] = None) -> None:
+    """
+    Generate an interactive HTML report using DataPane.
+
+    Args:
+        experiment_name (str): Name of the experiment
+        train_metrics (pd.DataFrame): Training metrics from CSV
+        val_metrics (pd.DataFrame): Validation metrics from CSV
+        test_metrics (pd.DataFrame): Validation metrics from CSV
+        y_true (np.ndarray): True labels
+        y_pred (np.ndarray): Predicted labels
+        class_names (List[str]): List of class names
+        history_plots (Dict[str, str]): Dictionary of plot paths from experiment.plot_history()
+    """
+
+    os.makedirs('reports', exist_ok=True)
+
+    cm = confusion_matrix(y_true, y_pred)
+    cm_fig = go.Figure(data=go.Heatmap(
+        z=cm,
+        x=class_names,
+        y=class_names,
+        colorscale='Blues',
+        text=cm,
+        texttemplate="%{text}",
+        textfont={"size": 16},
+        hoverongaps=False))
+    
+    cm_fig.update_layout(
+        title='Confusion Matrix',
+        xaxis_title='Predicted label',
+        yaxis_title='True label')
+
+    metrics = ['loss', 'accuracy', 'precision', 'recall', 'f1']
+    metric_plots = []
+    
+    for metric in metrics:
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(
+            x=train_metrics['epoch'],
+            y=train_metrics[metric],
+            name=f'Train {metric}',
+            mode='lines+markers'
+        ))
+        fig.add_trace(go.Scatter(
+            x=val_metrics['epoch'],
+            y=val_metrics[metric],
+            name=f'Val {metric}',
+            mode='lines+markers'
+        ))
+        fig.update_layout(
+            title=f'{metric.capitalize()} Over Time',
+            xaxis_title='Epoch',
+            yaxis_title=metric.capitalize()
+        )
+        metric_plots.append(dp.Plot(fig))
+
+    if 'lr' in train_metrics.columns:
+        lr_fig = go.Figure()
+        lr_fig.add_trace(go.Scatter(
+            x=train_metrics['epoch'],
+            y=train_metrics['lr'],
+            name='Learning Rate',
+            mode='lines'
+        ))
+        lr_fig.update_layout(
+            title='Learning Rate Over Time',
+            xaxis_title='Epoch',
+            yaxis_title='Learning Rate',
+            yaxis_type='log'
+        )
+        lr_plot = dp.Plot(lr_fig)
+    else:
+        lr_plot = None
+
+    final_metrics = {
+        'Accuracy': f"{test_metrics['accuracy'].iloc[-1]:.4f}",
+        'Precision': f"{test_metrics['precision'].iloc[-1]:.4f}",
+        'Recall': f"{test_metrics['recall'].iloc[-1]:.4f}",
+        'F1 Score': f"{test_metrics['f1'].iloc[-1]:.4f}",
+        'Final Loss': f"{test_metrics['loss'].iloc[-1]:.4f}"
+    }
+    metrics_df = pd.DataFrame([final_metrics])
+
+    # Create the report 
+    report = dp.Report(
+        dp.Text(f"# {experiment_name} - Model Performance Report"),
+
+        dp.Group(
+            dp.BigNumber(
+                heading="Best Validation Accuracy",
+                value=f"{val_metrics['accuracy'].max():.4f}"
+            ),
+            dp.BigNumber(
+                heading="Best F1 Score",
+                value=f"{val_metrics['f1'].max():.4f}"
+            ),
+            columns=2
+        ),
+
+        dp.Text("## Final Model Metrics on Test Set"),
+        dp.Table(metrics_df),
+        
+        dp.Text("## Confusion Matrix"),
+        dp.Plot(cm_fig),
+        
+        dp.Text("## Training Progress"),
+        dp.Group(*metric_plots, columns=2),
+        
+        dp.Text("## Learning Rate Schedule") if lr_plot else None,
+        lr_plot if lr_plot else None,
+
+        dp.Text("## Dataset Information"),
+        dp.Text(f"- Number of classes: {len(class_names)}"),
+        dp.Text(f"- Classes: {', '.join(class_names)}"),
+        dp.Text(f"- Total predictions: {len(y_true)}"),
+        
+        dp.Text("## Notes"),
+        dp.Text("- Model performance analysis is based on validation metrics"),
+        dp.Text("- Confusion matrix shows the distribution of predictions across classes"),
+    )
+
+    report.save(f"reports/{experiment_name}_report.html")
